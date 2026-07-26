@@ -54,13 +54,25 @@ data class DeviceProfile(
     val rightTrigger: AxisSpec?,
     val hatX: AxisSpec?,
     val hatY: AxisSpec?,
-    val stickDeadZone: Float = DEFAULT_DEAD_ZONE
+    val stickDeadZone: Float = DEFAULT_DEAD_ZONE,
+    /** Every axis the device reports, for diagnosing an unmapped control. */
+    val availableAxes: List<String> = emptyList()
 ) {
     fun withDeadZone(deadZone: Float): DeviceProfile =
         copy(stickDeadZone = deadZone.coerceIn(0f, 0.5f))
 
+    /** Human-readable summary shown on screen when a control does not work. */
+    fun describeTriggers(): String {
+        val left = leftTrigger?.let { axisName(it.axis) } ?: "none"
+        val right = rightTrigger?.let { axisName(it.axis) } ?: "none"
+        return "$left / $right"
+    }
+
     companion object {
         const val DEFAULT_DEAD_ZONE = 0.08f
+
+        fun axisName(axis: Int): String =
+            MotionEvent.axisToString(axis).removePrefix("AXIS_")
     }
 }
 
@@ -127,6 +139,16 @@ object DeviceProfiles {
             right = null
         }
 
+        // Last resort: plenty of controllers put the triggers on RX/RY while
+        // the right stick sits on Z/RZ. Only reachable when RX/RY were not
+        // already claimed as the right stick above.
+        if (left == null && rx != null && rx.axis != rightX?.axis && rx.axis != rightY?.axis) {
+            left = rx
+        }
+        if (right == null && ry != null && ry.axis != rightX?.axis && ry.axis != rightY?.axis) {
+            right = ry
+        }
+
         val profile = DeviceProfile(
             deviceName = device.name ?: "Unknown controller",
             layout = layout,
@@ -138,7 +160,8 @@ object DeviceProfiles {
             rightTrigger = right,
             hatX = hatX,
             hatY = hatY,
-            stickDeadZone = deadZone.coerceIn(0f, 0.5f)
+            stickDeadZone = deadZone.coerceIn(0f, 0.5f),
+            availableAxes = device.motionRanges.map { DeviceProfile.axisName(it.axis) }
         )
         Log.i(TAG, "Detected profile: $profile")
         return profile

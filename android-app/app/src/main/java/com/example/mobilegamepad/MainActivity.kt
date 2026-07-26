@@ -271,6 +271,17 @@ class MainActivity : AppCompatActivity() {
         val error = service.lastError
         val errorLine = if (error == null) "" else getString(R.string.debug_error, error)
 
+        val profile = activeProfile
+        val axisReport = if (profile == null) {
+            ""
+        } else {
+            getString(
+                R.string.debug_axes,
+                profile.describeTriggers(),
+                profile.availableAxes.joinToString(", ")
+            )
+        }
+
         debugText.text = getString(
             R.string.debug_state,
             peer,
@@ -284,7 +295,7 @@ class MainActivity : AppCompatActivity() {
             state.rightStickY,
             state.leftTrigger,
             state.rightTrigger,
-            errorLine
+            axisReport + errorLine
         )
     }
 

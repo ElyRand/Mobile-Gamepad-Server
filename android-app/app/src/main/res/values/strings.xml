@@ -19,6 +19,7 @@
     <string name="debug_idle">Waiting for controller input…</string>
     <string name="debug_discovering">Sending discovery broadcast…</string>
     <string name="debug_error">\nSend error: %1$s</string>
+    <string name="debug_axes">\nTrigger axes: %1$s\nDevice axes: %2$s</string>
     <string name="controller_unknown">no controller seen yet</string>
     <string name="peer_connected">PC responding (round trip %1$d ms)</string>
     <string name="peer_no_reply">No reply from PC — check IP, Wi‑Fi and firewall</string>
