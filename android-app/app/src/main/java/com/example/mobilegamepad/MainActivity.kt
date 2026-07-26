@@ -25,7 +25,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var toggleButton: Button
     private lateinit var discoverButton: Button
     private lateinit var statusText: TextView
-    private lateinit var debugText: TextView
+    private lateinit var linkText: TextView
+    private lateinit var controllerText: TextView
+    private lateinit var axisText: TextView
+    private lateinit var gamepadView: GamepadView
 
     private val discoveryClient = DiscoveryClient()
     private val executor = Executors.newSingleThreadExecutor()
@@ -78,14 +81,25 @@ class MainActivity : AppCompatActivity() {
         toggleButton = findViewById(R.id.toggle_button)
         discoverButton = findViewById(R.id.discover_button)
         statusText = findViewById(R.id.status_text)
-        debugText = findViewById(R.id.debug_text)
+        linkText = findViewById(R.id.link_text)
+        controllerText = findViewById(R.id.controller_text)
+        axisText = findViewById(R.id.axis_text)
+        gamepadView = findViewById(R.id.gamepad_view)
 
-        debugText.text = getString(R.string.debug_idle)
+        linkText.text = getString(R.string.link_idle)
         toggleButton.setOnClickListener { toggleStreaming() }
         discoverButton.setOnClickListener { discoverHost() }
 
-        deadZoneInput.setText((DeviceProfile.DEFAULT_DEAD_ZONE * 100).toInt().toString())
-        deadZoneInput.doAfterTextChanged { deadZone = readDeadZone() }
+        restoreSettings()
+        // Retyping the PC address after every restart gets old fast, so each
+        // field is persisted as it is edited.
+        listOf(hostInput, portInput, pairCodeInput).forEach { field ->
+            field.doAfterTextChanged { saveSettings() }
+        }
+        deadZoneInput.doAfterTextChanged {
+            deadZone = readDeadZone()
+            saveSettings()
+        }
 
         window.decorView.isFocusableInTouchMode = true
         window.decorView.requestFocus()
@@ -195,8 +209,35 @@ class MainActivity : AppCompatActivity() {
         val profile = DeviceProfiles.detect(device, deadZone)
         activeProfile = profile
         activeDeviceId = device.id
-        controllerName = "${profile.deviceName} (${profile.layout})"
+        controllerName = profile.deviceName
+        controllerText.text = profile.deviceName
+        axisText.text = getString(
+            R.string.axis_report,
+            profile.layout,
+            profile.describeTriggers(),
+            profile.availableAxes.joinToString(", ")
+        )
         return profile
+    }
+
+    private fun restoreSettings() {
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        hostInput.setText(prefs.getString(KEY_HOST, "").orEmpty())
+        portInput.setText(prefs.getString(KEY_PORT, DEFAULT_PORT).orEmpty())
+        pairCodeInput.setText(prefs.getString(KEY_PAIR_CODE, "").orEmpty())
+        deadZoneInput.setText(
+            prefs.getString(KEY_DEAD_ZONE, (DeviceProfile.DEFAULT_DEAD_ZONE * 100).toInt().toString())
+        )
+        deadZone = readDeadZone()
+    }
+
+    private fun saveSettings() {
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+            .putString(KEY_HOST, hostInput.text?.toString()?.trim().orEmpty())
+            .putString(KEY_PORT, portInput.text?.toString()?.trim().orEmpty())
+            .putString(KEY_PAIR_CODE, pairCodeInput.text?.toString()?.trim().orEmpty())
+            .putString(KEY_DEAD_ZONE, deadZoneInput.text?.toString()?.trim().orEmpty())
+            .apply()
     }
 
     private fun readDeadZone(): Float {
@@ -210,6 +251,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         state = newState
+        gamepadView.setState(newState)
         streamingService?.updateState(newState)
     }
 
@@ -234,6 +276,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         state = ControllerState()
+        gamepadView.setState(state)
         service.startStreaming(NetworkConfig(host, port))
         toggleButton.text = getString(R.string.stop_streaming)
         statusText.text = getString(R.string.status_connected, host, port)
@@ -242,9 +285,10 @@ class MainActivity : AppCompatActivity() {
     private fun stopStreaming() {
         streamingService?.stopStreaming()
         state = ControllerState()
+        gamepadView.setState(state)
         toggleButton.text = getString(R.string.start_streaming)
         statusText.text = getString(R.string.status_disconnected)
-        debugText.text = getString(R.string.debug_idle)
+        linkText.text = getString(R.string.link_idle)
     }
 
     private fun updateDebugText() {
@@ -262,45 +306,17 @@ class MainActivity : AppCompatActivity() {
             lastRateSampleAt = now
         }
 
-        val peer = when {
-            service.isPeerResponding ->
-                getString(R.string.peer_connected, service.roundTripMs ?: 0L)
-            else -> getString(R.string.peer_no_reply)
-        }
-
         val error = service.lastError
-        val errorLine = if (error == null) "" else getString(R.string.debug_error, error)
-
-        val profile = activeProfile
-        val axisReport = if (profile == null) {
-            ""
-        } else {
-            getString(
-                R.string.debug_axes,
-                profile.describeTriggers(),
-                profile.availableAxes.joinToString(", ")
-            )
+        linkText.text = when {
+            error != null -> getString(R.string.link_error, error)
+            service.isPeerResponding ->
+                getString(R.string.link_ok, service.roundTripMs ?: 0L, packetsPerSecond, sent)
+            else -> getString(R.string.link_no_reply)
         }
-
-        debugText.text = getString(
-            R.string.debug_state,
-            peer,
-            controllerName ?: getString(R.string.controller_unknown),
-            sent,
-            packetsPerSecond,
-            state.buttons,
-            state.leftStickX,
-            state.leftStickY,
-            state.rightStickX,
-            state.rightStickY,
-            state.leftTrigger,
-            state.rightTrigger,
-            axisReport + errorLine
-        )
     }
 
     private fun discoverHost() {
-        debugText.text = getString(R.string.debug_discovering)
+        linkText.text = getString(R.string.debug_discovering)
         statusText.text = getString(R.string.status_discovering)
         val pairCode = pairCodeInput.text?.toString()?.trim().orEmpty().ifBlank { null }
         executor.execute {
@@ -308,19 +324,28 @@ class MainActivity : AppCompatActivity() {
             uiHandler.post {
                 if (result == null) {
                     statusText.text = getString(R.string.status_discovery_failed)
-                    debugText.text = getString(R.string.debug_idle)
+                    linkText.text = getString(R.string.link_idle)
                 } else {
                     hostInput.setText(result.host)
                     portInput.setText(result.port.toString())
                     result.pairCode?.let { pairCodeInput.setText(it) }
                     statusText.text = getString(R.string.status_discovery_success, result.host, result.port)
-                    debugText.text = getString(R.string.debug_idle)
+                    linkText.text = getString(R.string.link_idle)
                 }
             }
         }
     }
 
     private fun isStreaming(): Boolean = streamingService?.isStreaming == true
+
+    private companion object {
+        const val PREFS = "mobile_gamepad_settings"
+        const val KEY_HOST = "host"
+        const val KEY_PORT = "port"
+        const val KEY_PAIR_CODE = "pair_code"
+        const val KEY_DEAD_ZONE = "dead_zone"
+        const val DEFAULT_PORT = "9876"
+    }
 
     private fun updateUiForServiceState() {
         if (isStreaming()) {

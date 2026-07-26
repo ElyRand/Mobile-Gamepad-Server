@@ -3,6 +3,32 @@
 This fork tracks every deliberate deviation from
 `nobiti/Mobile-Gamepad-Server`. Newest first.
 
+## Phase 7: Interface redesign
+
+Rebuilt the phone screen around what matters while the app is in use,
+once the transport was proven working.
+
+**Live controller view** (`GamepadView`): a custom view drawing stick
+positions, trigger travel and pressed buttons. Reading raw numbers off
+a diagnostics dump made it hard to tell a dead control from one mapped
+to the wrong axis — which is exactly the bug this project hit on real
+hardware, where the triggers silently drove the right stick.
+
+**Three cards in order of how often you look at them**: connection
+state and the start/stop control first, the live controller second,
+and the setup fields last, since those are needed once. Replaced the
+plain inputs with Material 3 outlined text fields and buttons.
+
+**Settings are persisted.** The IP, port, pairing code and dead zone
+were lost on every restart or reinstall, which meant retyping the PC
+address constantly during testing. They now save as they are edited,
+and the port defaults to 9876.
+
+**Shortened field labels** — "PC IP address (example: 192.168.1.20)"
+was truncated to an unreadable stub in a half-width field on a real
+device — and dropped the redundant "Status:" prefix now that the card
+provides the context.
+
 ## Phase 6: Automated tests
 
 49 tests, all passing: 24 xUnit (`pc-companion/CompanionApp.Tests`) and
