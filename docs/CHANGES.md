@@ -3,6 +3,50 @@
 This fork tracks every deliberate deviation from
 `nobiti/Mobile-Gamepad-Server`. Newest first.
 
+## Phase 6: Automated tests
+
+49 tests, all passing: 24 xUnit (`pc-companion/CompanionApp.Tests`) and
+25 JUnit (`android-app/app/src/test`).
+
+- Packet encode/decode round trip, packet size, rejection of bad magic,
+  wrong version, and short packets.
+- **A golden-bytes test on both sides asserting the same 32 literal
+  bytes**, so the Kotlin and C# encoders cannot drift apart silently.
+- Button bit field: bits distinct, single-bit, and within the u16 field.
+- Axis normalization, including controllers that report sticks as
+  0..255 and triggers as -1..1, dead zones, and clamping.
+- Sequence handling: duplicates, out-of-order, gap-based loss
+  estimation, and `uint` wraparound in both directions.
+- Disconnect behavior driven through a real loopback socket against the
+  real server: state applied, inputs released after the timeout,
+  released immediately on GOODBYE, stale packets ignored, PING
+  answered, and malformed datagrams tolerated.
+
+## Phase 5: Per-device controller profiles
+
+**Axis ranges are read from the device instead of assumed.** Upstream
+called `getAxisValue` and used the number as-is, which silently
+misbehaves on controllers that do not report -1..1. Each axis is now
+normalized through the `InputDevice.MotionRange` the device itself
+publishes.
+
+**Trigger and right-stick axis detection.** Controllers disagree about
+which axis carries what: triggers appear on `BRAKE`/`GAS`,
+`LTRIGGER`/`RTRIGGER`, or (on PlayStation pads) `RX`/`RY`, which is
+also where some pads put the right stick. Detection now inspects the
+axes a device actually exposes, with a PlayStation-specific rule on
+top, and falls back to the digital L2/R2 keycodes when a pad has no
+analog triggers.
+
+**Configurable dead zone** (percentage field on the phone), applied
+during normalization; profiles are re-detected when the controller or
+the setting changes.
+
+**Unknown inputs are logged**, not swallowed: every axis a controller
+exposes is logged with its range at detection time, and unmapped
+keycodes are logged with their symbolic names, so a new controller can
+be mapped from a logcat capture.
+
 ## Phase 4: Connection status on both ends
 
 **The phone now knows whether the PC is there.** UDP gives no delivery

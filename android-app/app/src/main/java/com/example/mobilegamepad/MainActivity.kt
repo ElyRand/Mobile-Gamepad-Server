@@ -14,12 +14,14 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.widget.doAfterTextChanged
 import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
     private lateinit var hostInput: EditText
     private lateinit var portInput: EditText
     private lateinit var pairCodeInput: EditText
+    private lateinit var deadZoneInput: EditText
     private lateinit var toggleButton: Button
     private lateinit var discoverButton: Button
     private lateinit var statusText: TextView
@@ -38,6 +40,10 @@ class MainActivity : AppCompatActivity() {
     private var lastRateSampleCount = 0L
     private var lastRateSampleAt = 0L
     private var packetsPerSecond = 0f
+
+    private var activeProfile: DeviceProfile? = null
+    private var activeDeviceId: Int = -1
+    private var deadZone: Float = DeviceProfile.DEFAULT_DEAD_ZONE
 
     private val diagnosticsTick = object : Runnable {
         override fun run() {
@@ -68,6 +74,7 @@ class MainActivity : AppCompatActivity() {
         hostInput = findViewById(R.id.host_input)
         portInput = findViewById(R.id.port_input)
         pairCodeInput = findViewById(R.id.pair_code_input)
+        deadZoneInput = findViewById(R.id.dead_zone_input)
         toggleButton = findViewById(R.id.toggle_button)
         discoverButton = findViewById(R.id.discover_button)
         statusText = findViewById(R.id.status_text)
@@ -76,6 +83,9 @@ class MainActivity : AppCompatActivity() {
         debugText.text = getString(R.string.debug_idle)
         toggleButton.setOnClickListener { toggleStreaming() }
         discoverButton.setOnClickListener { discoverHost() }
+
+        deadZoneInput.setText((DeviceProfile.DEFAULT_DEAD_ZONE * 100).toInt().toString())
+        deadZoneInput.doAfterTextChanged { deadZone = readDeadZone() }
 
         window.decorView.isFocusableInTouchMode = true
         window.decorView.requestFocus()
@@ -107,8 +117,8 @@ class MainActivity : AppCompatActivity() {
             return super.onGenericMotionEvent(event)
         }
         if (event.source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK) {
-            controllerName = event.device?.name
-            publish(GamepadMapper.applyMotion(state, event))
+            val profile = profileFor(event.device) ?: return super.onGenericMotionEvent(event)
+            publish(GamepadMapper.applyMotion(state, event, profile))
             return true
         }
         return super.onGenericMotionEvent(event)
@@ -137,9 +147,34 @@ class MainActivity : AppCompatActivity() {
             return true
         }
         val updated = GamepadMapper.applyKey(state, keyCode, pressed) ?: return false
-        controllerName = event.device?.name
+        event.device?.let { profileFor(it) }
         publish(updated)
         return true
+    }
+
+    /**
+     * Returns the profile for a device, re-detecting when the controller or
+     * the dead-zone setting changes.
+     */
+    private fun profileFor(device: InputDevice?): DeviceProfile? {
+        if (device == null) {
+            return activeProfile
+        }
+        val current = activeProfile
+        if (current != null && activeDeviceId == device.id && current.stickDeadZone == deadZone) {
+            return current
+        }
+        val profile = DeviceProfiles.detect(device, deadZone)
+        activeProfile = profile
+        activeDeviceId = device.id
+        controllerName = "${profile.deviceName} (${profile.layout})"
+        return profile
+    }
+
+    private fun readDeadZone(): Float {
+        val percent = deadZoneInput.text?.toString()?.trim()?.toFloatOrNull()
+            ?: return DeviceProfile.DEFAULT_DEAD_ZONE
+        return (percent / 100f).coerceIn(0f, 0.5f)
     }
 
     private fun publish(newState: ControllerState) {

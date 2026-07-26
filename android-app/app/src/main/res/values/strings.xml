@@ -5,6 +5,7 @@
     <string name="host_hint">PC IP address (example: 192.168.1.20)</string>
     <string name="port_hint">UDP port (example: 9876)</string>
     <string name="pair_code_hint">Pairing code (shown on PC companion)</string>
+    <string name="dead_zone_hint">Stick dead zone %</string>
     <string name="start_streaming">Start streaming</string>
     <string name="stop_streaming">Stop streaming</string>
     <string name="status_disconnected">Status: Disconnected</string>

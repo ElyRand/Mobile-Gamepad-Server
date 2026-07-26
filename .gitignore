@@ -16,3 +16,6 @@ pc-companion/dist/
 
 # Claude Code session data
 .claude/
+
+# Test outputs
+pc-companion/**/TestResults/

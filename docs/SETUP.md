@@ -40,6 +40,12 @@ winget install ViGEm.ViGEmBus
 dotnet build "pc-companion/CompanionApp/CompanionApp.csproj" -c Debug
 ```
 
+Run the tests with:
+
+```bash
+dotnet test "pc-companion/CompanionApp.Tests/CompanionApp.Tests.csproj"
+```
+
 Run `pc-companion/CompanionApp/bin/Debug/net8.0-windows/CompanionApp.exe`.
 On first run Windows Firewall will ask to allow the app — allow it on
 **Private networks** (it listens on UDP 9876 for controller state and
@@ -83,6 +89,12 @@ cd android-app && ./gradlew assembleDebug
 ```
 
 Output: `android-app/app/build/outputs/apk/debug/app-debug.apk`
+
+Run the unit tests with:
+
+```bash
+cd android-app && ./gradlew testDebugUnitTest
+```
 
 ### Option B: Android Studio
 
@@ -144,5 +156,20 @@ PC), unpair it from the PC to avoid double input.
   works on the phone in another app; keep the Mobile Gamepad app
   focused; some pads need a mode switch (e.g. 8BitDo: Android/X-input
   mode) before Android reports proper gamepad events.
-- **Pairing code**: shown in the companion GUI (Pairing tab); enter it
-  in the phone app if discovery requires it.
+- **Pairing code**: shown in the companion window; enter it in the
+  phone app if discovery requires it.
+- **A controller's buttons or triggers do nothing**: the app logs every
+  axis a controller reports, with its range, plus any keycode it does
+  not recognize. Capture it while pressing the offending control:
+
+```bash
+adb logcat -s GamepadMapper:I DeviceProfiles:I
+```
+
+- **`gradlew test` fails with "Could not find or load main class
+  Files\Google\Chrome\..."**: this machine's `PATH` contains a quoted
+  *command line* (`"C:\Program Files\Google\Chrome\Application\chrome.exe
+  --single-argument %1"`) where a directory is expected, which breaks
+  Gradle's forked test workers. Removing that one `PATH` entry (and the
+  similar `BROWSER` variable) fixes it; the compile and APK build are
+  unaffected.

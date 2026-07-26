@@ -43,6 +43,14 @@
         android:hint="@string/pair_code_hint"
         android:inputType="text" />
 
+    <EditText
+        android:id="@+id/dead_zone_input"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:hint="@string/dead_zone_hint"
+        android:inputType="number" />
+
     <Button
         android:id="@+id/discover_button"
         android:layout_width="match_parent"
