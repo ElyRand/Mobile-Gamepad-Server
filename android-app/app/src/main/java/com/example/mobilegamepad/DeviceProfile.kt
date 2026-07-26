@@ -3,6 +3,7 @@ package com.example.mobilegamepad
 import android.util.Log
 import android.view.InputDevice
 import android.view.MotionEvent
+import kotlin.math.max
 
 /**
  * One physical axis, with the range the device actually reports.
@@ -79,9 +80,6 @@ data class DeviceProfile(
 object DeviceProfiles {
     private const val TAG = "DeviceProfiles"
 
-    private const val VENDOR_SONY = 0x054C
-    private const val VENDOR_MICROSOFT = 0x045E
-    private const val VENDOR_NINTENDO = 0x057E
 
     fun detect(device: InputDevice, deadZone: Float = DeviceProfile.DEFAULT_DEAD_ZONE): DeviceProfile {
         logAxes(device)
@@ -100,53 +98,63 @@ object DeviceProfiles {
         val brake = AxisSpec.of(device, MotionEvent.AXIS_BRAKE)
         val gas = AxisSpec.of(device, MotionEvent.AXIS_GAS)
 
-        // Right stick: Z/RZ on Xbox-style pads (the common case), RX/RY when
-        // the device does not expose Z/RZ.
-        var rightX = z
-        var rightY = rz
-        if (rightX == null || rightY == null) {
-            rightX = rx
-            rightY = ry
-        }
+        val explicitLeft = ltrigger ?: brake
+        val explicitRight = rtrigger ?: gas
 
-        // Triggers, in order of how explicit the reporting is.
-        var left = ltrigger ?: brake
-        var right = rtrigger ?: gas
-        var layout = "generic"
+        var rightX: AxisSpec?
+        var rightY: AxisSpec?
+        var left: AxisSpec?
+        var right: AxisSpec?
+        val layout: String
 
-        if (device.vendorId == VENDOR_SONY) {
-            // PlayStation pads report the triggers on RX/RY and keep Z/RZ for
-            // the right stick, which the generic order above would mistake.
-            layout = "playstation"
-            if (z != null && rz != null) {
+        if (explicitLeft != null && explicitRight != null) {
+            // The device names its trigger axes, so nothing has to be guessed.
+            rightX = z ?: rx
+            rightY = rz ?: ry
+            left = explicitLeft
+            right = explicitRight
+            layout = "explicit-triggers"
+        } else if (z != null && rz != null && rx != null && ry != null) {
+            // Both Z/RZ and RX/RY exist and one pair is the right stick while
+            // the other carries the triggers. Which is which depends on the
+            // driver: Android's Xbox mapping puts the stick on Z/RZ, while the
+            // raw evdev layout many USB pads expose puts the stick on RX/RY
+            // and the triggers on Z/RZ. The two are exact opposites, so guess
+            // wrong and the triggers drive the stick.
+            //
+            // The device itself distinguishes them: an analog stick publishes
+            // a dead zone (flat > 0) because it never rests perfectly centred,
+            // whereas a trigger rests hard against its stop and reports flat 0.
+            val stickIsRxRy = max(rx.flat, ry.flat) > max(z.flat, rz.flat)
+            if (stickIsRxRy) {
+                rightX = rx
+                rightY = ry
+                left = z
+                right = rz
+                layout = "evdev (stick on RX/RY, triggers on Z/RZ)"
+            } else {
                 rightX = z
                 rightY = rz
-                left = ltrigger ?: rx ?: brake
-                right = rtrigger ?: ry ?: gas
+                left = rx
+                right = ry
+                layout = "android (stick on Z/RZ, triggers on RX/RY)"
             }
-        } else if (device.vendorId == VENDOR_MICROSOFT) {
-            layout = "xbox"
-        } else if (device.vendorId == VENDOR_NINTENDO) {
-            layout = "nintendo"
+        } else {
+            // Only one candidate pair: treat it as the right stick and let the
+            // L2/R2 keycodes supply the triggers.
+            rightX = z ?: rx
+            rightY = rz ?: ry
+            left = explicitLeft
+            right = explicitRight
+            layout = "no-analog-triggers"
         }
 
-        // If the triggers ended up on the same axes as the right stick, the
-        // device has no analog triggers; the L2/R2 keycodes carry them.
+        // Never let one axis drive two controls.
         if (left != null && (left.axis == rightX?.axis || left.axis == rightY?.axis)) {
             left = null
         }
         if (right != null && (right.axis == rightX?.axis || right.axis == rightY?.axis)) {
             right = null
-        }
-
-        // Last resort: plenty of controllers put the triggers on RX/RY while
-        // the right stick sits on Z/RZ. Only reachable when RX/RY were not
-        // already claimed as the right stick above.
-        if (left == null && rx != null && rx.axis != rightX?.axis && rx.axis != rightY?.axis) {
-            left = rx
-        }
-        if (right == null && ry != null && ry.axis != rightX?.axis && ry.axis != rightY?.axis) {
-            right = ry
         }
 
         val profile = DeviceProfile(
