@@ -13,3 +13,6 @@ pc-companion/dist/
 # OS/editor
 .DS_Store
 .vscode/
+
+# Claude Code session data
+.claude/
