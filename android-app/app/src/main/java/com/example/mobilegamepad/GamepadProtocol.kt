@@ -33,6 +33,35 @@ object GamepadProtocol {
     const val BUTTON_DPAD_RIGHT = 1 shl 13
     const val BUTTON_GUIDE = 1 shl 14
 
+    /** Reads the header of a received packet, or null if it is not ours. */
+    fun decodeHeader(bytes: ByteArray, length: Int): Header? {
+        if (length < PACKET_SIZE) {
+            return null
+        }
+        for (i in MAGIC.indices) {
+            if (bytes[i] != MAGIC[i]) {
+                return null
+            }
+        }
+        if (bytes[4].toInt() != VERSION) {
+            return null
+        }
+        val buffer = ByteBuffer.wrap(bytes, 0, length).order(ByteOrder.LITTLE_ENDIAN)
+        return Header(
+            type = bytes[5].toInt(),
+            controllerId = buffer.getShort(6).toInt() and 0xFFFF,
+            sequence = buffer.getInt(8),
+            timestampMs = buffer.getLong(12)
+        )
+    }
+
+    data class Header(
+        val type: Int,
+        val controllerId: Int,
+        val sequence: Int,
+        val timestampMs: Long
+    )
+
     fun encode(
         type: Int,
         state: ControllerState,

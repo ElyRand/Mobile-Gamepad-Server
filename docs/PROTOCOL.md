@@ -102,9 +102,19 @@ convenience for picking the right PC on a shared network, not a
 security mechanism — this protocol is unauthenticated and unencrypted
 and is meant for a trusted local network only.
 
+## Round-trip latency
+
+The phone sends a PING once per second with its **monotonic**
+`elapsedRealtime` in the timestamp field. The PC echoes the packet back
+unchanged as PONG, so the phone measures the round trip against a
+single clock, with no clock-synchronization assumption. The phone
+treats the PC as unreachable if no PONG arrives for 3 seconds — the
+only connection feedback available, since UDP itself provides none.
+
+Note that PING timestamps are monotonic while STATE timestamps are wall
+clock; only the sender interprets the PING value, so the two uses do
+not conflict.
+
 ## Implementation status
 
-- Phone sends STATE and GOODBYE; PC handles STATE, GOODBYE and answers
-  PING with PONG.
-- The phone does **not** yet send PING, so round-trip latency is not
-  displayed anywhere. The PC side is in place for when it does.
+All four message types are implemented on both sides.

@@ -3,6 +3,25 @@
 This fork tracks every deliberate deviation from
 `nobiti/Mobile-Gamepad-Server`. Newest first.
 
+## Phase 4: Connection status on both ends
+
+**The phone now knows whether the PC is there.** UDP gives no delivery
+feedback, so upstream's "Status: Streaming to x.x.x.x" was asserted
+purely from having a socket — it looked identical whether the PC was
+running or switched off. The phone now pings once a second and reports
+either "PC responding (round trip N ms)" or an explicit "No reply from
+PC", along with the connected controller name, packets sent, packet
+rate, and the live button/stick/trigger values.
+
+Round trip is measured with `elapsedRealtime` on both ends of the trip
+(the PC echoes the value back untouched), so it needs no clock
+synchronization between phone and PC, unlike the one-way number
+upstream displayed.
+
+**PC status window** shows connection state, virtual-pad state, packets
+received and per-second rate, last-packet age, loss estimate, and the
+decoded live controller state.
+
 ## Phase 3: Binary full-state protocol
 
 **Replaced the JSON per-event protocol with a 32-byte binary full-state

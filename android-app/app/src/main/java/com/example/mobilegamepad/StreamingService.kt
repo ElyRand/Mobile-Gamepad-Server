@@ -19,6 +19,8 @@ class StreamingService : Service() {
 
     val packetsSent: Long get() = sender.packetsSent
     val lastError: String? get() = sender.lastError
+    val roundTripMs: Long? get() = sender.roundTripMs
+    val isPeerResponding: Boolean get() = sender.isPeerResponding
 
     inner class LocalBinder : Binder() {
         fun getService(): StreamingService = this@StreamingService

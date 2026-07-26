@@ -35,6 +35,10 @@ class MainActivity : AppCompatActivity() {
     private var state = ControllerState()
     private var controllerName: String? = null
 
+    private var lastRateSampleCount = 0L
+    private var lastRateSampleAt = 0L
+    private var packetsPerSecond = 0f
+
     private val diagnosticsTick = object : Runnable {
         override fun run() {
             updateDebugText()
@@ -185,21 +189,39 @@ class MainActivity : AppCompatActivity() {
         if (service == null || !service.isStreaming) {
             return
         }
-        service.lastError?.let {
-            debugText.text = getString(R.string.debug_error, it)
-            return
+
+        val sent = service.packetsSent
+        val now = android.os.SystemClock.elapsedRealtime()
+        val elapsed = now - lastRateSampleAt
+        if (elapsed >= 1000) {
+            packetsPerSecond = (sent - lastRateSampleCount) * 1000f / elapsed
+            lastRateSampleCount = sent
+            lastRateSampleAt = now
         }
+
+        val peer = when {
+            service.isPeerResponding ->
+                getString(R.string.peer_connected, service.roundTripMs ?: 0L)
+            else -> getString(R.string.peer_no_reply)
+        }
+
+        val error = service.lastError
+        val errorLine = if (error == null) "" else getString(R.string.debug_error, error)
+
         debugText.text = getString(
             R.string.debug_state,
+            peer,
             controllerName ?: getString(R.string.controller_unknown),
-            service.packetsSent,
+            sent,
+            packetsPerSecond,
             state.buttons,
             state.leftStickX,
             state.leftStickY,
             state.rightStickX,
             state.rightStickY,
             state.leftTrigger,
-            state.rightTrigger
+            state.rightTrigger,
+            errorLine
         )
     }
 
