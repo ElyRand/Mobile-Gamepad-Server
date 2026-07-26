@@ -81,12 +81,25 @@ public sealed class DiscoveryResponder : IDisposable
                 return true;
             }
 
+            // A request that carries no pairing code is answered anyway. The
+            // code exists to pick the right PC when several are running, not
+            // as a security boundary (discovery only reveals an address that
+            // is already on the same LAN). Rejecting these silently made a
+            // blank field on the phone look like the PC was unreachable.
             if (!document.RootElement.TryGetProperty("pairCode", out var pairElement))
             {
-                return false;
+                return true;
             }
 
-            return string.Equals(pairElement.GetString(), _pairCode, StringComparison.OrdinalIgnoreCase);
+            var requested = pairElement.GetString();
+            if (string.IsNullOrWhiteSpace(requested))
+            {
+                return true;
+            }
+
+            // A code that is present but wrong means the phone is looking for
+            // a different PC, so stay quiet.
+            return string.Equals(requested, _pairCode, StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception)
         {

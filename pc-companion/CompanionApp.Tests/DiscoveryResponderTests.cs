@@ -48,6 +48,29 @@ public class DiscoveryResponderTests
         Assert.Equal("127.0.0.1", document.RootElement.GetProperty("host").GetString());
     }
 
+    /// <summary>
+    /// A blank pairing-code field on the phone must still find the PC;
+    /// silently ignoring these looked exactly like an unreachable host.
+    /// </summary>
+    [Fact]
+    public void AnswersRequestThatOmitsThePairCode()
+    {
+        var discoveryPort = FreePort();
+        using var responder = new DiscoveryResponder(discoveryPort, streamPort: 9876, pairCode: "1234");
+        responder.StartAsync();
+
+        using var client = new UdpClient();
+        client.Client.ReceiveTimeout = 3000;
+        var request = Encoding.UTF8.GetBytes("""{"type":"mg_discovery_request"}""");
+        client.Send(request, request.Length, new IPEndPoint(IPAddress.Loopback, discoveryPort));
+
+        var remote = new IPEndPoint(IPAddress.Any, 0);
+        using var document = JsonDocument.Parse(client.Receive(ref remote));
+        Assert.Equal("mg_discovery_response", document.RootElement.GetProperty("type").GetString());
+        // The reply advertises the real code so the phone can fill it in.
+        Assert.Equal("1234", document.RootElement.GetProperty("pairCode").GetString());
+    }
+
     [Fact]
     public void IgnoresRequestWithWrongPairCode()
     {
