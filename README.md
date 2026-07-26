@@ -37,7 +37,17 @@ are in [`docs/SETUP.md`](docs/SETUP.md).
 
 ## Status
 
-Verified: the Windows companion builds and drives a virtual Xbox 360
-pad (confirmed by reading back XInput state); the Android APK builds.
-The end-to-end path with a real controller and phone has not yet been
-tested on-device.
+**Verified on a Windows 11 machine:**
+
+- The companion builds clean and drives a real virtual Xbox 360 pad —
+  confirmed by injecting protocol packets and reading the resulting
+  XInput state back, including stale/duplicate rejection, the 500 ms
+  disconnect reset, GOODBYE, and ping replies.
+- 49 automated tests pass (24 xUnit, 25 JUnit), including a golden-byte
+  test asserting the Kotlin and C# encoders produce identical packets.
+- The Android APK builds and its unit tests pass.
+
+**Not yet verified:** the phone half of the loop — capturing input from
+a physical controller and sending it — has never been run on a device.
+Everything on the phone side is written but untested against real
+hardware.
