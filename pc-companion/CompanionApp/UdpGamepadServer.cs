@@ -137,8 +137,13 @@ public sealed class UdpGamepadServer : IDisposable
             if (message.ControllerId != _controllerId)
             {
                 // A different phone (or the same one restarted) took over.
+                // The received counter resets with the sequence stats so every
+                // figure on screen describes the same session; otherwise the
+                // loss percentage is measured over a much shorter window than
+                // the packet count beside it, and the two look contradictory.
                 _controllerId = message.ControllerId;
                 _sequence.Reset();
+                _received = 0;
             }
 
             accept = _sequence.ShouldAccept(message.Sequence);
