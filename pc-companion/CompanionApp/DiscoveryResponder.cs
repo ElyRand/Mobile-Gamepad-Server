@@ -43,7 +43,7 @@ public sealed class DiscoveryResponder : IDisposable
                     continue;
                 }
 
-                var host = GetLocalAddress(result.RemoteEndPoint.AddressFamily) ?? "127.0.0.1";
+                var host = GetLocalAddressFor(result.RemoteEndPoint) ?? "127.0.0.1";
                 var response = new
                 {
                     type = "mg_discovery_response",
@@ -94,9 +94,39 @@ public sealed class DiscoveryResponder : IDisposable
         }
     }
 
-    private static string? GetLocalAddress(AddressFamily family)
+    /// <summary>
+    /// Returns the address of the interface the OS would actually use to
+    /// reach this particular client.
+    ///
+    /// Picking the first address of the machine is wrong as soon as there is
+    /// more than one interface: on a host running Tailscale or Hyper-V, the
+    /// VPN or virtual-switch address commonly sorts first, and the phone
+    /// would then be told to send controller data somewhere other than the
+    /// local network. Connecting a UDP socket sends nothing; it just asks the
+    /// routing table which source address applies.
+    /// </summary>
+    public static string? GetLocalAddressFor(IPEndPoint remote)
     {
-        var host = Dns.GetHostEntry(Dns.GetHostName());
-        return host.AddressList.FirstOrDefault(ip => ip.AddressFamily == family)?.ToString();
+        try
+        {
+            using var probe = new Socket(remote.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+            probe.Connect(remote.Address, DiscoveryProbePort);
+            if (probe.LocalEndPoint is IPEndPoint local && !local.Address.Equals(IPAddress.Any))
+            {
+                return local.Address.ToString();
+            }
+        }
+        catch (SocketException)
+        {
+            // No route to that client; fall through to the best guess below.
+        }
+
+        return Dns.GetHostEntry(Dns.GetHostName())
+            .AddressList
+            .FirstOrDefault(ip => ip.AddressFamily == remote.AddressFamily)
+            ?.ToString();
     }
+
+    // Discard port: connecting a datagram socket to it transmits nothing.
+    private const int DiscoveryProbePort = 9;
 }
