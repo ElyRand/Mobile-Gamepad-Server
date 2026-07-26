@@ -5,8 +5,6 @@
     <string name="host_hint">PC IP address (example: 192.168.1.20)</string>
     <string name="port_hint">UDP port (example: 9876)</string>
     <string name="pair_code_hint">Pairing code (shown on PC companion)</string>
-    <string name="secret_hint">Shared secret (optional, enables encryption)</string>
-    <string name="scan_qr_button">Scan QR pairing code</string>
     <string name="start_streaming">Start streaming</string>
     <string name="stop_streaming">Stop streaming</string>
     <string name="status_disconnected">Status: Disconnected</string>
@@ -16,13 +14,6 @@
     <string name="status_discovery_failed">Status: Discovery failed. Enter host manually.</string>
     <string name="status_discovery_success">Status: Found %1$s:%2$d</string>
     <string name="status_service_unavailable">Status: Waiting for streaming service…</string>
-    <string name="pairing_status_idle">Pairing: Not paired</string>
-    <string name="pairing_status_exchanging">Pairing: Exchanging keys…</string>
-    <string name="pairing_status_ready">Pairing: Ready</string>
-    <string name="pairing_status_failed">Pairing: Failed (check QR/PC)</string>
-    <string name="pairing_scan_cancelled">Pairing: Scan cancelled</string>
-    <string name="pairing_scan_invalid">Pairing: Invalid QR code</string>
-    <string name="qr_prompt">Scan the PC companion pairing QR code</string>
     <string name="debug_idle">Waiting for controller input…</string>
     <string name="debug_discovering">Sending discovery broadcast…</string>
     <string name="debug_payload">Axes: %1$s Buttons: %2$s</string>

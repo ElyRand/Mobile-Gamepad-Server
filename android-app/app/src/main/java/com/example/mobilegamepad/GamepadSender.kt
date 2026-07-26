@@ -34,29 +34,7 @@ class GamepadSender {
                 json.put("buttons", payload.buttons)
                 json.put("deviceName", payload.deviceName)
 
-                val bytes = when {
-                    activeConfig.sessionKey != null -> {
-                        val encrypted = CryptoUtils.encryptJson(json.toString(), activeConfig.sessionKey)
-                        val wrapper = JSONObject()
-                        wrapper.put("type", "gamepad_encrypted")
-                        wrapper.put("nonce", encrypted.nonce)
-                        wrapper.put("payload", encrypted.payload)
-                        activeConfig.keyId?.let { wrapper.put("keyId", it) }
-                        wrapper.toString().toByteArray()
-                    }
-                    !activeConfig.sharedSecret.isNullOrBlank() -> {
-                        val encrypted = CryptoUtils.encryptJson(
-                            json.toString(),
-                            CryptoUtils.keyFromSharedSecret(activeConfig.sharedSecret)
-                        )
-                        val wrapper = JSONObject()
-                        wrapper.put("type", "gamepad_encrypted")
-                        wrapper.put("nonce", encrypted.nonce)
-                        wrapper.put("payload", encrypted.payload)
-                        wrapper.toString().toByteArray()
-                    }
-                    else -> json.toString().toByteArray()
-                }
+                val bytes = json.toString().toByteArray()
                 val packet = DatagramPacket(
                     bytes,
                     bytes.size,

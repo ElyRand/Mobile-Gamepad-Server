@@ -30,9 +30,7 @@ public static class SettingsLoader
         return new CompanionSettings
         {
             PairCode = "1234",
-            SharedSecret = "change-me",
             DefaultProfile = "default",
-            StartWithWindows = false,
             Profiles = new List<MappingProfile>
             {
                 new()

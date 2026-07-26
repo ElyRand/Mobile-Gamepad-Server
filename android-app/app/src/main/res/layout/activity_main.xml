@@ -43,27 +43,12 @@
         android:hint="@string/pair_code_hint"
         android:inputType="text" />
 
-    <EditText
-        android:id="@+id/secret_input"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:hint="@string/secret_hint"
-        android:inputType="textPassword" />
-
     <Button
         android:id="@+id/discover_button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:text="@string/discover_button" />
-
-    <Button
-        android:id="@+id/scan_qr_button"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="@string/scan_qr_button" />
 
     <Button
         android:id="@+id/toggle_button"
@@ -78,14 +63,6 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:text="@string/status_disconnected" />
-
-    <TextView
-        android:id="@+id/pairing_status_text"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/pairing_status_idle"
-        android:textAppearance="?attr/textAppearanceBodySmall" />
 
     <TextView
         android:id="@+id/debug_text"

@@ -11,13 +11,11 @@ public sealed class DiscoveryResponder : IDisposable
     private readonly CancellationTokenSource _cts = new();
     private readonly int _streamPort;
     private readonly string _pairCode;
-    private readonly PairingSession _pairingSession;
 
-    public DiscoveryResponder(int discoveryPort, int streamPort, string pairCode, PairingSession pairingSession)
+    public DiscoveryResponder(int discoveryPort, int streamPort, string pairCode)
     {
         _streamPort = streamPort;
         _pairCode = pairCode;
-        _pairingSession = pairingSession;
         _client = new UdpClient(discoveryPort) { EnableBroadcast = true };
     }
 
@@ -51,9 +49,7 @@ public sealed class DiscoveryResponder : IDisposable
                     type = "mg_discovery_response",
                     host,
                     port = _streamPort,
-                    pairCode = _pairCode,
-                    publicKey = _pairingSession.PublicKeyBase64,
-                    keyId = _pairingSession.KeyId
+                    pairCode = _pairCode
                 };
                 var bytes = JsonSerializer.SerializeToUtf8Bytes(response);
                 await _client.SendAsync(bytes, bytes.Length, result.RemoteEndPoint);

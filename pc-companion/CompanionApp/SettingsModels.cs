@@ -10,8 +10,6 @@ public sealed class MappingProfile
 public sealed class CompanionSettings
 {
     public string PairCode { get; init; } = "1234";
-    public string SharedSecret { get; init; } = "change-me";
     public string DefaultProfile { get; init; } = "default";
-    public bool StartWithWindows { get; init; }
     public List<MappingProfile> Profiles { get; init; } = new();
 }
