@@ -111,7 +111,11 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         val intent = Intent(this, StreamingService::class.java)
-        startForegroundService(intent)
+        // startService, not startForegroundService: the service only promotes
+        // itself to foreground once streaming actually begins, and a service
+        // started with startForegroundService must call startForeground within
+        // seconds or the OS kills the app.
+        startService(intent)
         bindService(intent, serviceConnection, BIND_AUTO_CREATE)
     }
 
