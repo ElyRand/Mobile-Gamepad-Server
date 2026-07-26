@@ -1,42 +1,84 @@
 package com.example.mobilegamepad
 
+import android.util.Log
 import android.view.KeyEvent
 import android.view.MotionEvent
+import kotlin.math.max
 
 object GamepadMapper {
-    fun mapAxes(event: MotionEvent): Map<String, Float> {
-        return mapOf(
-            "left_stick_x" to event.getAxisValue(MotionEvent.AXIS_X),
-            "left_stick_y" to event.getAxisValue(MotionEvent.AXIS_Y),
-            "right_stick_x" to event.getAxisValue(MotionEvent.AXIS_Z),
-            "right_stick_y" to event.getAxisValue(MotionEvent.AXIS_RZ),
-            "dpad_x" to event.getAxisValue(MotionEvent.AXIS_HAT_X),
-            "dpad_y" to event.getAxisValue(MotionEvent.AXIS_HAT_Y),
-            "left_trigger" to event.getAxisValue(MotionEvent.AXIS_BRAKE),
-            "right_trigger" to event.getAxisValue(MotionEvent.AXIS_GAS)
+    private const val TAG = "GamepadMapper"
+
+    /** Applies every axis carried by a joystick MotionEvent to the state. */
+    fun applyMotion(state: ControllerState, event: MotionEvent, deadZone: Float = 0f): ControllerState {
+        // Android reports stick Y as negative-up; the wire format uses the
+        // Xbox convention of positive-up, so Y axes are negated here.
+        val leftX = AxisNormalizer.stick(event.getAxisValue(MotionEvent.AXIS_X), deadZone)
+        val leftY = AxisNormalizer.stick(-event.getAxisValue(MotionEvent.AXIS_Y), deadZone)
+        val rightX = AxisNormalizer.stick(event.getAxisValue(MotionEvent.AXIS_Z), deadZone)
+        val rightY = AxisNormalizer.stick(-event.getAxisValue(MotionEvent.AXIS_RZ), deadZone)
+
+        // Controllers disagree on which axis carries the triggers: most report
+        // BRAKE/GAS, some report LTRIGGER/RTRIGGER. Taking the larger value
+        // works for both without needing to know the device.
+        val leftTrigger = AxisNormalizer.trigger(
+            max(event.getAxisValue(MotionEvent.AXIS_BRAKE), event.getAxisValue(MotionEvent.AXIS_LTRIGGER))
         )
+        val rightTrigger = AxisNormalizer.trigger(
+            max(event.getAxisValue(MotionEvent.AXIS_GAS), event.getAxisValue(MotionEvent.AXIS_RTRIGGER))
+        )
+
+        val hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X)
+        val hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y)
+
+        return state.copy(
+            leftStickX = leftX,
+            leftStickY = leftY,
+            rightStickX = rightX,
+            rightStickY = rightY,
+            leftTrigger = leftTrigger,
+            rightTrigger = rightTrigger
+        )
+            .withButton(GamepadProtocol.BUTTON_DPAD_LEFT, hatX < -0.5f)
+            .withButton(GamepadProtocol.BUTTON_DPAD_RIGHT, hatX > 0.5f)
+            .withButton(GamepadProtocol.BUTTON_DPAD_UP, hatY < -0.5f)
+            .withButton(GamepadProtocol.BUTTON_DPAD_DOWN, hatY > 0.5f)
     }
 
-    fun mapButton(keyCode: Int): String? {
-        return when (keyCode) {
-            KeyEvent.KEYCODE_BUTTON_A -> "a"
-            KeyEvent.KEYCODE_BUTTON_B -> "b"
-            KeyEvent.KEYCODE_BUTTON_X -> "x"
-            KeyEvent.KEYCODE_BUTTON_Y -> "y"
-            KeyEvent.KEYCODE_BUTTON_L1 -> "lb"
-            KeyEvent.KEYCODE_BUTTON_R1 -> "rb"
-            KeyEvent.KEYCODE_BUTTON_L2 -> "lt"
-            KeyEvent.KEYCODE_BUTTON_R2 -> "rt"
-            KeyEvent.KEYCODE_BUTTON_THUMBL -> "ls"
-            KeyEvent.KEYCODE_BUTTON_THUMBR -> "rs"
-            KeyEvent.KEYCODE_BUTTON_START -> "start"
-            KeyEvent.KEYCODE_BUTTON_SELECT -> "back"
-            KeyEvent.KEYCODE_BUTTON_MODE -> "home"
-            KeyEvent.KEYCODE_DPAD_UP -> "dpad_up"
-            KeyEvent.KEYCODE_DPAD_DOWN -> "dpad_down"
-            KeyEvent.KEYCODE_DPAD_LEFT -> "dpad_left"
-            KeyEvent.KEYCODE_DPAD_RIGHT -> "dpad_right"
-            else -> null
+    /**
+     * Applies a gamepad key event. Returns null when the key is not part of
+     * the Xbox 360 layout, so the caller can let the system handle it.
+     */
+    fun applyKey(state: ControllerState, keyCode: Int, pressed: Boolean): ControllerState? {
+        // L2/R2 arrive as key events on controllers with digital triggers.
+        when (keyCode) {
+            KeyEvent.KEYCODE_BUTTON_L2 -> return state.copy(leftTrigger = if (pressed) 255 else 0)
+            KeyEvent.KEYCODE_BUTTON_R2 -> return state.copy(rightTrigger = if (pressed) 255 else 0)
         }
+
+        val bit = buttonBit(keyCode)
+        if (bit == null) {
+            Log.d(TAG, "Unmapped key event: keyCode=$keyCode (${KeyEvent.keyCodeToString(keyCode)})")
+            return null
+        }
+        return state.withButton(bit, pressed)
+    }
+
+    fun buttonBit(keyCode: Int): Int? = when (keyCode) {
+        KeyEvent.KEYCODE_BUTTON_A -> GamepadProtocol.BUTTON_A
+        KeyEvent.KEYCODE_BUTTON_B -> GamepadProtocol.BUTTON_B
+        KeyEvent.KEYCODE_BUTTON_X -> GamepadProtocol.BUTTON_X
+        KeyEvent.KEYCODE_BUTTON_Y -> GamepadProtocol.BUTTON_Y
+        KeyEvent.KEYCODE_BUTTON_L1 -> GamepadProtocol.BUTTON_LEFT_SHOULDER
+        KeyEvent.KEYCODE_BUTTON_R1 -> GamepadProtocol.BUTTON_RIGHT_SHOULDER
+        KeyEvent.KEYCODE_BUTTON_THUMBL -> GamepadProtocol.BUTTON_LEFT_THUMB
+        KeyEvent.KEYCODE_BUTTON_THUMBR -> GamepadProtocol.BUTTON_RIGHT_THUMB
+        KeyEvent.KEYCODE_BUTTON_START -> GamepadProtocol.BUTTON_START
+        KeyEvent.KEYCODE_BUTTON_SELECT -> GamepadProtocol.BUTTON_BACK
+        KeyEvent.KEYCODE_BUTTON_MODE -> GamepadProtocol.BUTTON_GUIDE
+        KeyEvent.KEYCODE_DPAD_UP -> GamepadProtocol.BUTTON_DPAD_UP
+        KeyEvent.KEYCODE_DPAD_DOWN -> GamepadProtocol.BUTTON_DPAD_DOWN
+        KeyEvent.KEYCODE_DPAD_LEFT -> GamepadProtocol.BUTTON_DPAD_LEFT
+        KeyEvent.KEYCODE_DPAD_RIGHT -> GamepadProtocol.BUTTON_DPAD_RIGHT
+        else -> null
     }
 }

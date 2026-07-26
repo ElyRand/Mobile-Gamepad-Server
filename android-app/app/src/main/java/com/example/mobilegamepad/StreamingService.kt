@@ -13,25 +13,31 @@ import androidx.core.app.NotificationCompat
 class StreamingService : Service() {
     private val binder = LocalBinder()
     private val sender = GamepadSender()
-    private var currentConfig: NetworkConfig? = null
+
     var isStreaming: Boolean = false
         private set
+
+    val packetsSent: Long get() = sender.packetsSent
+    val lastError: String? get() = sender.lastError
 
     inner class LocalBinder : Binder() {
         fun getService(): StreamingService = this@StreamingService
     }
 
-    override fun onBind(intent: Intent?): IBinder {
-        return binder
-    }
+    override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         ensureNotificationChannel()
         return START_STICKY
     }
 
+    override fun onDestroy() {
+        sender.stop()
+        isStreaming = false
+        super.onDestroy()
+    }
+
     fun startStreaming(config: NetworkConfig) {
-        currentConfig = config
         sender.start(config)
         isStreaming = true
         startForeground(NOTIFICATION_ID, buildNotification(config))
@@ -40,13 +46,12 @@ class StreamingService : Service() {
     fun stopStreaming() {
         sender.stop()
         isStreaming = false
-        currentConfig = null
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
-    fun sendPayload(payload: GamepadPayload) {
+    fun updateState(state: ControllerState) {
         if (!isStreaming) return
-        sender.sendInput(payload)
+        sender.update(state)
     }
 
     private fun buildNotification(config: NetworkConfig): Notification {

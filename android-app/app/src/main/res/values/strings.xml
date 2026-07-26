@@ -16,7 +16,9 @@
     <string name="status_service_unavailable">Status: Waiting for streaming service…</string>
     <string name="debug_idle">Waiting for controller input…</string>
     <string name="debug_discovering">Sending discovery broadcast…</string>
-    <string name="debug_payload">Axes: %1$s Buttons: %2$s</string>
+    <string name="debug_error">Send error: %1$s</string>
+    <string name="controller_unknown">no controller seen yet</string>
+    <string name="debug_state">Controller: %1$s\nPackets sent: %2$d\nButtons: 0x%3$04X\nLeft stick: %4$d, %5$d\nRight stick: %6$d, %7$d\nTriggers: %8$d / %9$d</string>
     <string name="discover_button">Discover PC</string>
     <string name="notification_title">Mobile Gamepad streaming</string>
     <string name="notification_body">Sending input to %1$s:%2$d</string>

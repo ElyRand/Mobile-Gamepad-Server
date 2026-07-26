@@ -31,6 +31,17 @@ class MainActivity : AppCompatActivity() {
     private var streamingService: StreamingService? = null
     private var isBound = false
 
+    /** Current full controller state; only touched on the UI thread. */
+    private var state = ControllerState()
+    private var controllerName: String? = null
+
+    private val diagnosticsTick = object : Runnable {
+        override fun run() {
+            updateDebugText()
+            uiHandler.postDelayed(this, 500)
+        }
+    }
+
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             val binder = service as? StreamingService.LocalBinder ?: return
@@ -75,10 +86,12 @@ class MainActivity : AppCompatActivity() {
         // seconds or the OS kills the app.
         startService(intent)
         bindService(intent, serviceConnection, BIND_AUTO_CREATE)
+        uiHandler.post(diagnosticsTick)
     }
 
     override fun onStop() {
         super.onStop()
+        uiHandler.removeCallbacks(diagnosticsTick)
         if (isBound) {
             unbindService(serviceConnection)
             isBound = false
@@ -90,33 +103,47 @@ class MainActivity : AppCompatActivity() {
             return super.onGenericMotionEvent(event)
         }
         if (event.source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK) {
-            val axes = GamepadMapper.mapAxes(event)
-            sendPayload(axes, emptyMap(), event.device)
+            controllerName = event.device?.name
+            publish(GamepadMapper.applyMotion(state, event))
             return true
         }
         return super.onGenericMotionEvent(event)
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (isStreaming() && event.source and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD) {
-            val mapped = GamepadMapper.mapButton(keyCode)
-            if (mapped != null) {
-                sendPayload(emptyMap(), mapOf(mapped to true), event.device)
-                return true
-            }
+        if (handleGamepadKey(keyCode, event, pressed = true)) {
+            return true
         }
         return super.onKeyDown(keyCode, event)
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
-        if (isStreaming() && event.source and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD) {
-            val mapped = GamepadMapper.mapButton(keyCode)
-            if (mapped != null) {
-                sendPayload(emptyMap(), mapOf(mapped to false), event.device)
-                return true
-            }
+        if (handleGamepadKey(keyCode, event, pressed = false)) {
+            return true
         }
         return super.onKeyUp(keyCode, event)
+    }
+
+    private fun handleGamepadKey(keyCode: Int, event: KeyEvent, pressed: Boolean): Boolean {
+        if (!isStreaming() || event.source and InputDevice.SOURCE_GAMEPAD != InputDevice.SOURCE_GAMEPAD) {
+            return false
+        }
+        // Auto-repeat events carry no new information for a full-state protocol.
+        if (pressed && event.repeatCount > 0) {
+            return true
+        }
+        val updated = GamepadMapper.applyKey(state, keyCode, pressed) ?: return false
+        controllerName = event.device?.name
+        publish(updated)
+        return true
+    }
+
+    private fun publish(newState: ControllerState) {
+        if (newState == state) {
+            return
+        }
+        state = newState
+        streamingService?.updateState(newState)
     }
 
     private fun toggleStreaming() {
@@ -139,6 +166,7 @@ class MainActivity : AppCompatActivity() {
             statusText.text = getString(R.string.status_service_unavailable)
             return
         }
+        state = ControllerState()
         service.startStreaming(NetworkConfig(host, port))
         toggleButton.text = getString(R.string.stop_streaming)
         statusText.text = getString(R.string.status_connected, host, port)
@@ -146,26 +174,32 @@ class MainActivity : AppCompatActivity() {
 
     private fun stopStreaming() {
         streamingService?.stopStreaming()
+        state = ControllerState()
         toggleButton.text = getString(R.string.start_streaming)
         statusText.text = getString(R.string.status_disconnected)
         debugText.text = getString(R.string.debug_idle)
     }
 
-    private fun sendPayload(
-        axes: Map<String, Float>,
-        buttons: Map<String, Boolean>,
-        device: InputDevice
-    ) {
-        val payload = GamepadPayload(
-            axes = axes,
-            buttons = buttons,
-            deviceName = device.name ?: "Unknown"
-        )
-        streamingService?.sendPayload(payload)
+    private fun updateDebugText() {
+        val service = streamingService
+        if (service == null || !service.isStreaming) {
+            return
+        }
+        service.lastError?.let {
+            debugText.text = getString(R.string.debug_error, it)
+            return
+        }
         debugText.text = getString(
-            R.string.debug_payload,
-            axes.keys.joinToString(),
-            buttons.keys.joinToString()
+            R.string.debug_state,
+            controllerName ?: getString(R.string.controller_unknown),
+            service.packetsSent,
+            state.buttons,
+            state.leftStickX,
+            state.leftStickY,
+            state.rightStickX,
+            state.rightStickY,
+            state.leftTrigger,
+            state.rightTrigger
         )
     }
 
