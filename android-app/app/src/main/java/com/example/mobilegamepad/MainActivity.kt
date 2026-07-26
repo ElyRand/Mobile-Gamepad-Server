@@ -112,34 +112,37 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onGenericMotionEvent(event: MotionEvent): Boolean {
-        if (!isStreaming()) {
-            return super.onGenericMotionEvent(event)
-        }
-        if (event.source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK) {
-            val profile = profileFor(event.device) ?: return super.onGenericMotionEvent(event)
-            publish(GamepadMapper.applyMotion(state, event, profile))
+    // Input is intercepted at dispatch level, before the focused view sees
+    // it. Going through onKeyDown/onGenericMotionEvent means a focused
+    // EditText eats D-pad and button presses to move its cursor, and the
+    // controller appears dead whenever the keyboard has been used.
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (isFromGamepad(event.source) &&
+            (event.action == KeyEvent.ACTION_DOWN || event.action == KeyEvent.ACTION_UP) &&
+            handleGamepadKey(event.keyCode, event, pressed = event.action == KeyEvent.ACTION_DOWN)
+        ) {
             return true
         }
-        return super.onGenericMotionEvent(event)
+        return super.dispatchKeyEvent(event)
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (handleGamepadKey(keyCode, event, pressed = true)) {
-            return true
+    override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+        if (isStreaming() && event.source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK) {
+            val profile = profileFor(event.device)
+            if (profile != null) {
+                publish(GamepadMapper.applyMotion(state, event, profile))
+                return true
+            }
         }
-        return super.onKeyDown(keyCode, event)
+        return super.dispatchGenericMotionEvent(event)
     }
 
-    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
-        if (handleGamepadKey(keyCode, event, pressed = false)) {
-            return true
-        }
-        return super.onKeyUp(keyCode, event)
-    }
+    private fun isFromGamepad(source: Int): Boolean =
+        source and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
+            source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
 
     private fun handleGamepadKey(keyCode: Int, event: KeyEvent, pressed: Boolean): Boolean {
-        if (!isStreaming() || event.source and InputDevice.SOURCE_GAMEPAD != InputDevice.SOURCE_GAMEPAD) {
+        if (!isStreaming()) {
             return false
         }
         // Auto-repeat events carry no new information for a full-state protocol.
