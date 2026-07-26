@@ -90,34 +90,25 @@ public sealed class ControllerMapper : IDisposable
                 "Left" => Xbox360Button.Left,
                 "Right" => Xbox360Button.Right,
                 "Guide" => Xbox360Button.Guide,
-                _ => (Xbox360Button?)null
+                _ => null
             };
 
-            if (xboxButton.HasValue)
+            if (xboxButton != null)
             {
-                _controller.SetButtonState(xboxButton.Value, isPressed);
+                _controller.SetButtonState(xboxButton, isPressed);
             }
         }
     }
 
     public void Reset()
     {
-        _controller.SetAxisValue(Xbox360Axis.LeftThumbX, 0);
-        _controller.SetAxisValue(Xbox360Axis.LeftThumbY, 0);
-        _controller.SetAxisValue(Xbox360Axis.RightThumbX, 0);
-        _controller.SetAxisValue(Xbox360Axis.RightThumbY, 0);
-        _controller.SetSliderValue(Xbox360Slider.LeftTrigger, 0);
-        _controller.SetSliderValue(Xbox360Slider.RightTrigger, 0);
-        foreach (Xbox360Button button in Enum.GetValues(typeof(Xbox360Button)))
-        {
-            _controller.SetButtonState(button, false);
-        }
+        _controller.ResetReport();
+        _controller.SubmitReport();
     }
 
     public void Dispose()
     {
         _controller.Disconnect();
-        _controller.Dispose();
         _client.Dispose();
     }
 

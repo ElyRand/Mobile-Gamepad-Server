@@ -10,8 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Nefarius.ViGEm.Client" Version="1.21.442" />
+    <PackageReference Include="Nefarius.ViGEm.Client" Version="1.21.256" />
     <PackageReference Include="QRCoder" Version="1.4.3" />
-    <Reference Include="System.Windows.Forms.DataVisualization" />
   </ItemGroup>
 </Project>

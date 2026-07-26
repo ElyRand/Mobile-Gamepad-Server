@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
 using System.Windows.Forms;
-using System.Windows.Forms.DataVisualization.Charting;
 using QRCoder;
 
 namespace CompanionApp;
@@ -17,7 +16,7 @@ public sealed class MainForm : Form
     private ControllerMapper? _mapper;
     private UdpGamepadServer? _server;
     private DiscoveryResponder? _discovery;
-    private readonly Timer _monitorTimer;
+    private readonly System.Windows.Forms.Timer _monitorTimer;
 
     private readonly TextBox _pairCodeInput = new();
     private readonly TextBox _sharedSecretInput = new();
@@ -31,7 +30,6 @@ public sealed class MainForm : Form
     private readonly Label _connectionStatusLabel = new();
     private readonly Label _lastPacketLabel = new();
     private readonly Label _latencyLabel = new();
-    private readonly Chart _latencyChart = new();
     private readonly Queue<double> _latencySamples = new();
     private DateTime _lastPacketUtc = DateTime.MinValue;
 
@@ -56,7 +54,7 @@ public sealed class MainForm : Form
         tabs.TabPages.Add(BuildStatusTab());
         Controls.Add(tabs);
 
-        _monitorTimer = new Timer { Interval = 1000 };
+        _monitorTimer = new System.Windows.Forms.Timer { Interval = 1000 };
         _monitorTimer.Tick += (_, _) =>
         {
             if (_server != null && _mapper != null && _server.IsIdle(TimeSpan.FromSeconds(5)))
@@ -197,9 +195,7 @@ public sealed class MainForm : Form
         statusPanel.Controls.Add(_lastPacketLabel);
         statusPanel.Controls.Add(_latencyLabel);
 
-        ConfigureLatencyChart();
         layout.Controls.Add(statusPanel, 0, 0);
-        layout.Controls.Add(_latencyChart, 0, 1);
         page.Controls.Add(layout);
         return page;
     }
@@ -289,37 +285,12 @@ public sealed class MainForm : Form
         _keyIdLabel.Text = $"Key ID: {_pairingSession.KeyId}";
     }
 
-    private void ConfigureLatencyChart()
-    {
-        _latencyChart.Dock = DockStyle.Fill;
-        _latencyChart.ChartAreas.Clear();
-        var area = new ChartArea("Latency");
-        area.AxisX.Title = "Samples";
-        area.AxisY.Title = "Latency (ms)";
-        _latencyChart.ChartAreas.Add(area);
-        _latencyChart.Series.Clear();
-        var series = new Series("Latency")
-        {
-            ChartType = SeriesChartType.Line,
-            ChartArea = "Latency"
-        };
-        _latencyChart.Series.Add(series);
-        _latencyChart.Legends.Clear();
-    }
-
     private void AddLatencySample(double latency)
     {
         _latencySamples.Enqueue(latency);
         while (_latencySamples.Count > 60)
         {
             _latencySamples.Dequeue();
-        }
-        var series = _latencyChart.Series["Latency"];
-        series.Points.Clear();
-        var index = 0;
-        foreach (var sample in _latencySamples)
-        {
-            series.Points.AddXY(index++, sample);
         }
         _latencyLabel.Text = $"Latency: {latency:0} ms";
     }
