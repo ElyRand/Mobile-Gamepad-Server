@@ -123,9 +123,28 @@ apps" for your file manager).
 5. Either tap **Discover PC** (UDP broadcast, fills host/port
    automatically) or enter the PC's IPv4 address (`ipconfig` on the PC)
    and port `9876` manually.
-6. Tap **Start streaming**. The app must stay in the **foreground** —
-   input capture uses the Activity's key/motion callbacks, so the
-   screen has to stay on with the app open.
+6. Tap **Start streaming**. The app must stay in the **foreground** and
+   keep window focus (see below).
+
+### Why the app must stay on screen
+
+Android delivers gamepad input only to the **focused window**, so the
+app can read the controller only while it is on screen and focused.
+There is no way around this short of an accessibility service, which
+this project deliberately does not use.
+
+What happens when you leave the app or pull down the notification
+shade:
+
+- All inputs are **released immediately** — sticks centre, triggers go
+  to zero, every button lifts — so nothing can stay stuck on the PC.
+- Streaming itself continues: the foreground service keeps the
+  connection alive and the heartbeat flowing, so returning to the app
+  resumes control instantly with no reconnect.
+
+Note this is one case the PC's disconnect watchdog cannot catch on its
+own, because packets are still arriving normally; the phone has to
+release the inputs itself.
 
 ## 4. Test with joy.cpl
 

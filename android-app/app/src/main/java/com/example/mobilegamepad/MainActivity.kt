@@ -106,10 +106,35 @@ class MainActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         uiHandler.removeCallbacks(diagnosticsTick)
+        releaseAllInputs()
         if (isBound) {
             unbindService(serviceConnection)
             isBound = false
         }
+    }
+
+    /**
+     * Android delivers controller input only to the focused window, so once
+     * this screen loses focus no press or release can reach us. Streaming
+     * continues (the connection stays alive and the service keeps its
+     * notification), but the state must be neutralized first: otherwise the
+     * heartbeat would keep re-sending whatever was held at that moment, and
+     * the PC would hold that button down forever. The receiver's watchdog
+     * cannot save us here, because packets are still arriving on time.
+     */
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (!hasFocus) {
+            releaseAllInputs()
+        }
+    }
+
+    private fun releaseAllInputs() {
+        if (state == ControllerState()) {
+            return
+        }
+        state = ControllerState()
+        streamingService?.updateState(state)
     }
 
     // Input is intercepted at dispatch level, before the focused view sees
